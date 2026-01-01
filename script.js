@@ -402,8 +402,8 @@ async function loadFromURL() {
     }
 
     try {
-        // 짧은 ID인지 확인 (8자 이하면 새 방식)
-        if (hash.length <= 20 && !/[%=]/.test(hash)) {
+        // Gist ID인지 확인 (영숫자만 포함, %나 = 없으면 새 방식)
+        if (!/[%=]/.test(hash) && /^[a-zA-Z0-9]+$/.test(hash)) {
             // 서버에서 데이터 가져오기
             const response = await fetch(`/api/load/${hash}`);
 
