@@ -316,6 +316,32 @@ function generateChzzkScript() {
 })();`;
 }
 
+function minimizeData(followingList) {
+    return followingList.map(item => ({
+        id: item.channel.channelId,
+        n: item.channel.channelName,
+        i: item.channel.channelImageUrl,
+        d: item.channel.personalData.following.followDate,
+        l: item.streamer && item.streamer.openLive ? 1 : 0
+    }));
+}
+
+function restoreData(minimizedList) {
+    return minimizedList.map(item => ({
+        channel: {
+            channelId: item.id,
+            channelName: item.n,
+            channelImageUrl: item.i,
+            personalData: {
+                following: {
+                    followDate: item.d
+                }
+            }
+        },
+        streamer: item.l ? { openLive: true } : null
+    }));
+}
+
 function generateShareLink() {
     if (followingData.length === 0) {
         alert('먼저 데이터를 불러와주세요');
@@ -323,20 +349,17 @@ function generateShareLink() {
     }
 
     try {
-        const data = {
-            content: {
-                followingList: followingData
-            }
-        };
-        const jsonString = JSON.stringify(data);
-        const compressed = LZString.compressToEncodedURIComponent(jsonString);
-        const shareUrl = `${window.location.origin}${window.location.pathname}#${compressed}`;
+        const minimized = minimizeData(followingData);
+        const jsonString = JSON.stringify(minimized);
+        const compressed = LZString.compressToBase64(jsonString);
+        const urlSafe = encodeURIComponent(compressed);
+        const shareUrl = `${window.location.origin}${window.location.pathname}#${urlSafe}`;
 
         navigator.clipboard.writeText(shareUrl).then(() => {
-            alert(`공유 링크가 클립보드에 복사되었습니다!\n\n총 ${followingData.length}명의 팔로우 목록이 포함되어 있습니다.`);
-            window.location.hash = compressed;
+            alert(`공유 링크가 클립보드에 복사되었습니다!\n\n총 ${followingData.length}명의 팔로우 목록이 포함되어 있습니다.\nURL 길이: ${shareUrl.length}자`);
+            window.location.hash = urlSafe;
         }).catch(() => {
-            window.location.hash = compressed;
+            window.location.hash = urlSafe;
             alert(`공유 링크가 생성되었습니다!\n\nURL: ${shareUrl}\n\n위 링크를 복사해서 공유하세요.`);
         });
     } catch (error) {
@@ -353,19 +376,34 @@ function loadFromURL() {
     }
 
     try {
-        const decompressed = LZString.decompressFromEncodedURIComponent(hash);
+        const urlDecoded = decodeURIComponent(hash);
+        let decompressed = LZString.decompressFromBase64(urlDecoded);
+
+        // 이전 버전 호환성 (EncodedURIComponent 방식)
+        if (!decompressed) {
+            decompressed = LZString.decompressFromEncodedURIComponent(hash);
+        }
+
         if (!decompressed) {
             document.getElementById('emptyState').classList.remove('d-none');
             return;
         }
 
         const data = JSON.parse(decompressed);
-        if (!data.content || !data.content.followingList) {
+
+        // 새로운 최적화 형식
+        if (Array.isArray(data)) {
+            followingData = restoreData(data);
+        }
+        // 이전 형식 (하위 호환성)
+        else if (data.content && data.content.followingList) {
+            followingData = data.content.followingList;
+        }
+        else {
             document.getElementById('emptyState').classList.remove('d-none');
             return;
         }
 
-        followingData = data.content.followingList;
         filteredData = followingData;
         renderGrid();
         updateStats();
