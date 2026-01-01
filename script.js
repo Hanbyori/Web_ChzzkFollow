@@ -342,33 +342,59 @@ function restoreData(minimizedList) {
     }));
 }
 
-function generateShareLink() {
+async function generateShareLink() {
     if (followingData.length === 0) {
         alert('먼저 데이터를 불러와주세요');
         return;
     }
 
     try {
-        const minimized = minimizeData(followingData);
-        const jsonString = JSON.stringify(minimized);
-        const compressed = LZString.compressToBase64(jsonString);
-        const urlSafe = encodeURIComponent(compressed);
-        const shareUrl = `${window.location.origin}${window.location.pathname}#${urlSafe}`;
+        // 로딩 표시
+        const originalText = event?.target?.textContent;
+        if (event?.target) {
+            event.target.textContent = '생성 중...';
+            event.target.disabled = true;
+        }
 
-        navigator.clipboard.writeText(shareUrl).then(() => {
-            alert(`공유 링크가 클립보드에 복사되었습니다!\n\n총 ${followingData.length}명의 팔로우 목록이 포함되어 있습니다.\nURL 길이: ${shareUrl.length}자`);
-            window.location.hash = urlSafe;
-        }).catch(() => {
-            window.location.hash = urlSafe;
-            alert(`공유 링크가 생성되었습니다!\n\nURL: ${shareUrl}\n\n위 링크를 복사해서 공유하세요.`);
+        // 데이터 최적화
+        const minimized = minimizeData(followingData);
+
+        // 서버에 데이터 전송
+        const response = await fetch('/api/share', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ data: minimized })
         });
+
+        if (!response.ok) {
+            throw new Error('서버 응답 오류');
+        }
+
+        const result = await response.json();
+        const shareUrl = `${window.location.origin}${window.location.pathname}#${result.id}`;
+
+        // 클립보드에 복사
+        await navigator.clipboard.writeText(shareUrl);
+
+        alert(`공유 링크가 클립보드에 복사되었습니다!\n\n총 ${followingData.length}명의 팔로우 목록\nURL 길이: ${shareUrl.length}자`);
+
+        window.location.hash = result.id;
+
     } catch (error) {
         console.error('공유 링크 생성 실패:', error);
-        alert('공유 링크 생성 중 오류가 발생했습니다.');
+        alert('공유 링크 생성 중 오류가 발생했습니다.\n서버에 연결할 수 없습니다.');
+    } finally {
+        // 버튼 복구
+        if (event?.target) {
+            event.target.textContent = originalText;
+            event.target.disabled = false;
+        }
     }
 }
 
-function loadFromURL() {
+async function loadFromURL() {
     const hash = window.location.hash.substring(1);
     if (!hash) {
         document.getElementById('emptyState').classList.remove('d-none');
@@ -376,6 +402,38 @@ function loadFromURL() {
     }
 
     try {
+        // 짧은 ID인지 확인 (8자 이하면 새 방식)
+        if (hash.length <= 20 && !/[%=]/.test(hash)) {
+            // 서버에서 데이터 가져오기
+            const response = await fetch(`/api/load/${hash}`);
+
+            if (!response.ok) {
+                throw new Error('데이터를 찾을 수 없거나 만료되었습니다');
+            }
+
+            const result = await response.json();
+            const data = result.data;
+
+            // 데이터 복원
+            if (Array.isArray(data)) {
+                followingData = restoreData(data);
+            } else if (data.content && data.content.followingList) {
+                followingData = data.content.followingList;
+            } else {
+                throw new Error('올바르지 않은 데이터 형식입니다');
+            }
+
+            filteredData = followingData;
+            renderGrid();
+            updateStats();
+
+            setTimeout(() => {
+                alert(`✅ ${followingData.length}명의 팔로우 목록을 불러왔습니다!`);
+            }, 100);
+            return;
+        }
+
+        // 이전 방식 (긴 URL 하위 호환성)
         const urlDecoded = decodeURIComponent(hash);
         let decompressed = LZString.decompressFromBase64(urlDecoded);
 
@@ -413,6 +471,7 @@ function loadFromURL() {
         }, 100);
     } catch (error) {
         console.error('URL 데이터 로드 실패:', error);
+        alert('데이터를 불러올 수 없습니다.\n' + error.message);
         document.getElementById('emptyState').classList.remove('d-none');
     }
 }

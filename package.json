@@ -1,0 +1,12 @@
+{
+  "name": "chzzk-follow-tracker",
+  "version": "1.0.0",
+  "description": "치지직 팔로우 목록 트래커",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.0.2"
+  }
+}
