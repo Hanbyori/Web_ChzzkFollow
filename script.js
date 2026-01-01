@@ -342,18 +342,20 @@ function restoreData(minimizedList) {
     }));
 }
 
-async function generateShareLink() {
+async function generateShareLink(event) {
     if (followingData.length === 0) {
         alert('먼저 데이터를 불러와주세요');
         return;
     }
 
+    const btn = event?.target;
+    const originalHTML = btn?.innerHTML;
+
     try {
         // 로딩 표시
-        const originalText = event?.target?.textContent;
-        if (event?.target) {
-            event.target.textContent = '생성 중...';
-            event.target.disabled = true;
+        if (btn) {
+            btn.innerHTML = '생성 중...';
+            btn.disabled = true;
         }
 
         // 데이터 최적화
@@ -384,12 +386,12 @@ async function generateShareLink() {
 
     } catch (error) {
         console.error('공유 링크 생성 실패:', error);
-        alert('공유 링크 생성 중 오류가 발생했습니다.\n서버에 연결할 수 없습니다.');
+        alert('공유 링크 생성 중 오류가 발생했습니다.\nF12 Console에서 에러를 확인하세요.');
     } finally {
         // 버튼 복구
-        if (event?.target) {
-            event.target.textContent = originalText;
-            event.target.disabled = false;
+        if (btn && originalHTML) {
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
         }
     }
 }
