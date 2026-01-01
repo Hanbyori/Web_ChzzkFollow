@@ -380,7 +380,7 @@ async function generateShareLink(event) {
         // 클립보드에 복사
         await navigator.clipboard.writeText(shareUrl);
 
-        alert(`공유 링크가 클립보드에 복사되었습니다!\n\n총 ${followingData.length}명의 팔로우 목록\nURL 길이: ${shareUrl.length}자`);
+        alert(`공유 링크가 클립보드에 복사되었습니다!`);
 
         window.location.hash = result.id;
 
