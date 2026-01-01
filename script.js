@@ -316,6 +316,69 @@ function generateChzzkScript() {
 })();`;
 }
 
+function generateShareLink() {
+    if (followingData.length === 0) {
+        alert('먼저 데이터를 불러와주세요');
+        return;
+    }
+
+    try {
+        const data = {
+            content: {
+                followingList: followingData
+            }
+        };
+        const jsonString = JSON.stringify(data);
+        const compressed = LZString.compressToEncodedURIComponent(jsonString);
+        const shareUrl = `${window.location.origin}${window.location.pathname}#${compressed}`;
+
+        navigator.clipboard.writeText(shareUrl).then(() => {
+            alert(`공유 링크가 클립보드에 복사되었습니다!\n\n총 ${followingData.length}명의 팔로우 목록이 포함되어 있습니다.`);
+            window.location.hash = compressed;
+        }).catch(() => {
+            window.location.hash = compressed;
+            alert(`공유 링크가 생성되었습니다!\n\nURL: ${shareUrl}\n\n위 링크를 복사해서 공유하세요.`);
+        });
+    } catch (error) {
+        console.error('공유 링크 생성 실패:', error);
+        alert('공유 링크 생성 중 오류가 발생했습니다.');
+    }
+}
+
+function loadFromURL() {
+    const hash = window.location.hash.substring(1);
+    if (!hash) {
+        document.getElementById('emptyState').classList.remove('d-none');
+        return;
+    }
+
+    try {
+        const decompressed = LZString.decompressFromEncodedURIComponent(hash);
+        if (!decompressed) {
+            document.getElementById('emptyState').classList.remove('d-none');
+            return;
+        }
+
+        const data = JSON.parse(decompressed);
+        if (!data.content || !data.content.followingList) {
+            document.getElementById('emptyState').classList.remove('d-none');
+            return;
+        }
+
+        followingData = data.content.followingList;
+        filteredData = followingData;
+        renderGrid();
+        updateStats();
+
+        setTimeout(() => {
+            alert(`✅ ${followingData.length}명의 팔로우 목록을 불러왔습니다!`);
+        }, 100);
+    } catch (error) {
+        console.error('URL 데이터 로드 실패:', error);
+        document.getElementById('emptyState').classList.remove('d-none');
+    }
+}
+
 window.addEventListener('load', () => {
-    document.getElementById('emptyState').classList.remove('d-none');
+    loadFromURL();
 });
